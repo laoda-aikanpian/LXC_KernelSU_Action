@@ -1,4 +1,4 @@
-name: Build PIPA Kernel (No External Clang)
+name: Build PIPA Kernel (Python 2→3 Fix)
 on:
   workflow_dispatch:
 
@@ -9,13 +9,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (Clang from Ubuntu repo)
+      - name: Install dependencies
         run: |
           sudo apt update && sudo apt install -y --no-install-recommends \
             build-essential libssl-dev libelf-dev bc bison flex \
-            zip unzip cpio python3 gcc-aarch64-linux-gnu lld \
+            zip unzip cpio python2 python3 gcc-aarch64-linux-gnu lld \
             clang-15 llvm-15 binutils binutils-aarch64-linux-gnu
-          # 设置默认clang/llvm版本
+          # 设置默认工具链
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
           sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-15 100
           sudo update-alternatives --install /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-15 100
@@ -28,15 +28,22 @@ jobs:
         run: |
           git clone --depth=1 -b pipa-t-oss https://gitlab.com/MiCode-mirror/xiaomi_kernel_opensource.git kernel
 
+      # 关键修复：把 Python 2 的 print 语法改成 Python 3
+      - name: Fix Python syntax in kernel scripts
+        run: |
+          cd kernel
+          # 给 print 加上括号，兼容 Python 3
+          sed -i 's/print "\(.*\)"/print("\1")/' ./scripts/gcc-wrapper.py
+          sed -i 's/print "\(.*\)", \(.*\)/print("\1", \2)/' ./scripts/gcc-wrapper.py
+
       - name: Load config and apply fixes
         run: |
           cd kernel
           make pipa_user_defconfig
-          # 禁用会导致编译失败的模块
+          # 禁用不兼容模块
           sed -i 's/CONFIG_VDSO=y/CONFIG_VDSO=n/' .config
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/' .config
           sed -i 's/CONFIG_KPROBES=y/CONFIG_KPROBES=n/' .config
-          sed -i 's/CONFIG_MODULES=y/CONFIG_MODULES=n/' .config
 
       - name: Build kernel
         run: |
