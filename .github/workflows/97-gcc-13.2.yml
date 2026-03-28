@@ -1,6 +1,6 @@
-name: Build PIPA Kernel (Official Source)
+ name: Build PIPA Kernel (Fixed)
 on:
-  workflow_dispatch: # 只允许手动触发，避免自动运行出错
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,7 +14,7 @@ jobs:
           sudo apt update && sudo apt install -y \
             git make build-essential libssl-dev libelf-dev \
             bc bison flex zip unzip cpio python3 \
-            gcc-aarch64-linux-gnu lld
+            gcc-aarch64-linux-gnu
 
       - name: Download Android 13 official Clang
         run: |
@@ -26,20 +26,16 @@ jobs:
       - name: Clone Xiaomi official kernel source
         run: |
           git clone --depth=1 -b pipa-t-oss https://gitlab.com/MiCode-mirror/xiaomi_kernel_opensource.git kernel
-          cd kernel && git log --oneline -1
 
       - name: Load config and apply fixes
         run: |
           cd kernel
-          # 加载官方配置
           make pipa_user_defconfig
-          # 修复不兼容模块，解决汇编报错
+          # 禁用导致编译失败的模块
           sed -i 's/CONFIG_VDSO=y/CONFIG_VDSO=n/' .config
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/' .config
           sed -i 's/CONFIG_KPROBES=y/CONFIG_KPROBES=n/' .config
-          # 可选：加入BlackSun的省电优化
-          sed -i 's/CONFIG_GPU_DEBUG=y/CONFIG_GPU_DEBUG=n/' .config
-          sed -i 's/CONFIG_CRASH_DUMP=y/CONFIG_CRASH_DUMP=n/' .config
+          sed -i 's/CONFIG_MODULES=y/CONFIG_MODULES=n/' .config
 
       - name: Build kernel
         run: |
@@ -59,8 +55,6 @@ jobs:
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git anykernel3
           cp kernel/arch/arm64/boot/Image.gz-dtb anykernel3/
-          # 可选：添加设备适配信息
-          echo "board=pipa" > anykernel3/board
 
       - name: Create flashable zip
         run: |
