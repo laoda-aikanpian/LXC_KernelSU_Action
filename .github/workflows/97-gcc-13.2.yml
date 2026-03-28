@@ -1,4 +1,4 @@
-name: Build PIPA Kernel (Fixed)
+name: Build PIPA Kernel (Final Working)
 on:
   workflow_dispatch:
 
@@ -6,24 +6,22 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
-          sudo apt update && sudo apt install -y \
-            git make build-essential libssl-dev libelf-dev \
-            bc bison flex zip unzip cpio python3 \
-            gcc-aarch64-linux-gnu
+          sudo apt update && sudo apt install -y --no-install-recommends \
+            build-essential libssl-dev libelf-dev bc bison flex \
+            zip unzip cpio python3 gcc-aarch64-linux-gnu lld
 
-      - name: Download Android 13 official Clang
+      - name: Download working Clang toolchain
         run: |
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-13.0.0_r45/clang-r450784.tar.gz
-          mkdir -p clang && tar -xf clang-r450784.tar.gz -C clang
-          echo "CLANG_PATH=$GITHUB_WORKSPACE/clang/bin" >> $GITHUB_ENV
-          echo "PATH=$GITHUB_WORKSPACE/clang/bin:$PATH" >> $GITHUB_ENV
+          wget -O clang.tar.gz https://github.com/LineageOS/android_prebuilts_clang_kernel/archive/refs/heads/lineage-20.0.tar.gz
+          mkdir -p clang && tar -xf clang.tar.gz --strip-components=1 -C clang
+          echo "PATH=$GITHUB_WORKSPACE/clang/bin:$PATH" >> $GITHUB_PATH
 
-      - name: Clone Xiaomi official kernel source
+      - name: Clone Xiaomi PIPA kernel source
         run: |
           git clone --depth=1 -b pipa-t-oss https://gitlab.com/MiCode-mirror/xiaomi_kernel_opensource.git kernel
 
@@ -35,6 +33,7 @@ jobs:
           sed -i 's/CONFIG_VDSO=y/CONFIG_VDSO=n/' .config
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/' .config
           sed -i 's/CONFIG_KPROBES=y/CONFIG_KPROBES=n/' .config
+          sed -i 's/CONFIG_MODULES=y/CONFIG_MODULES=n/' .config
 
       - name: Build kernel
         run: |
@@ -50,17 +49,18 @@ jobs:
             OBJDUMP=llvm-objdump \
             STRIP=llvm-strip
 
-      - name: Prepare AnyKernel3
+      - name: Prepare AnyKernel3 package
         run: |
-          git clone https://github.com/osm0sis/AnyKernel3.git anykernel3
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel3
           cp kernel/arch/arm64/boot/Image.gz-dtb anykernel3/
+          echo "board=pipa" > anykernel3/board
 
       - name: Create flashable zip
         run: |
           cd anykernel3
           zip -r PIPA-Official-Kernel.zip *
 
-      - name: Upload artifact
+      - name: Upload kernel package
         uses: actions/upload-artifact@v4
         with:
           name: PIPA-Official-Kernel
