@@ -1,4 +1,4 @@
-name: Build PIPA Kernel (Final Working)
+name: Build PIPA Kernel (No External Clang)
 on:
   workflow_dispatch:
 
@@ -9,18 +9,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install dependencies (Clang from Ubuntu repo)
         run: |
           sudo apt update && sudo apt install -y --no-install-recommends \
             build-essential libssl-dev libelf-dev bc bison flex \
-            zip unzip cpio python3 gcc-aarch64-linux-gnu lld
-
-      # 改用稳定的 r450784 镜像地址
-      - name: Download working Clang r450784
-        run: |
-          wget https://github.com/LineageOS/android_prebuilts_clang_kernel/releases/download/1.0/clang-r450784.tar.xz
-          mkdir -p clang && tar -xf clang-r450784.tar.xz -C clang
-          echo "PATH=$GITHUB_WORKSPACE/clang/bin:$PATH" >> $GITHUB_PATH
+            zip unzip cpio python3 gcc-aarch64-linux-gnu lld \
+            clang-15 llvm-15 binutils binutils-aarch64-linux-gnu
+          # 设置默认clang/llvm版本
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
+          sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-15 100
+          sudo update-alternatives --install /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-15 100
+          sudo update-alternatives --install /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-15 100
+          sudo update-alternatives --install /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-15 100
+          sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-15 100
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-15 100
 
       - name: Clone Xiaomi PIPA kernel source
         run: |
@@ -34,6 +36,7 @@ jobs:
           sed -i 's/CONFIG_VDSO=y/CONFIG_VDSO=n/' .config
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/' .config
           sed -i 's/CONFIG_KPROBES=y/CONFIG_KPROBES=n/' .config
+          sed -i 's/CONFIG_MODULES=y/CONFIG_MODULES=n/' .config
 
       - name: Build kernel
         run: |
@@ -65,3 +68,4 @@ jobs:
         with:
           name: PIPA-Official-Kernel
           path: anykernel3/PIPA-Official-Kernel.zip
+
