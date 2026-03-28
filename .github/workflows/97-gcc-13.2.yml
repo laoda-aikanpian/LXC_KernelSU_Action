@@ -1,4 +1,4 @@
-name: Build PIPA Kernel (Python 2 Mode)
+name: Build PIPA Kernel (ARM64 Config Fix)
 on:
   workflow_dispatch:
 
@@ -15,9 +15,9 @@ jobs:
             build-essential libssl-dev libelf-dev bc bison flex \
             zip unzip cpio python2 python3 gcc-aarch64-linux-gnu lld \
             clang-15 llvm-15 binutils binutils-aarch64-linux-gnu
-          # 强制设置python软链接到python2
+          # 强制设置python为python2
           sudo ln -sf /usr/bin/python2 /usr/bin/python
-          # 设置默认clang/llvm版本
+          # 设置默认工具链
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
           sudo update-alternatives --install /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-15 100
           sudo update-alternatives --install /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-15 100
@@ -30,10 +30,11 @@ jobs:
         run: |
           git clone --depth=1 -b pipa-t-oss https://gitlab.com/MiCode-mirror/xiaomi_kernel_opensource.git kernel
 
-      - name: Load config (using Python 2)
+      # 关键修复：强制指定ARCH=arm64，让make在正确路径找配置
+      - name: Load config (ARM64 + Python 2)
         run: |
           cd kernel
-          make pipa_user_defconfig PYTHON=/usr/bin/python2
+          make ARCH=arm64 pipa_user_defconfig PYTHON=/usr/bin/python2
 
       - name: Apply config fixes
         run: |
@@ -46,10 +47,10 @@ jobs:
         run: |
           cd kernel
           make -j$(nproc) \
+            ARCH=arm64 \
             PYTHON=/usr/bin/python2 \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            ARCH=arm64 \
             LD=ld.lld \
             AR=llvm-ar \
             NM=llvm-nm \
