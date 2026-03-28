@@ -1,4 +1,4 @@
- name: Build PIPA Kernel (Fixed)
+name: Build PIPA Kernel (Fixed)
 on:
   workflow_dispatch:
 
@@ -35,7 +35,6 @@ jobs:
           sed -i 's/CONFIG_VDSO=y/CONFIG_VDSO=n/' .config
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/' .config
           sed -i 's/CONFIG_KPROBES=y/CONFIG_KPROBES=n/' .config
-          sed -i 's/CONFIG_MODULES=y/CONFIG_MODULES=n/' .config
 
       - name: Build kernel
         run: |
